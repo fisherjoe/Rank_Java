@@ -1,0 +1,108 @@
+	public class RankFactory extends Object {
+		
+		private List<HashMap<String, Object>> tempData;
+		private List<HashMap<String, Object>> resultData;
+		private List<HashMap<String, Object>> demoData;
+		private String parentIdKey;
+		private String idKey;
+		
+		public RankFactory(List<HashMap<String, Object>> _demoData, String _parentIdKey, String _idKey){
+			demoData = _demoData;
+			parentIdKey = _parentIdKey;
+			idKey = _idKey;
+		}
+		
+		public List rank(){
+			tempData = new ArrayList<HashMap<String, Object>>();
+			resultData = new ArrayList<HashMap<String, Object>>();
+
+			//第一次分类
+			for(int i = 0, count = demoData.size(); i < count; i++){
+				HashMap<String, Object> item = demoData.get(i);
+				String pid = (String) item.get(parentIdKey);
+				if(pid.equals("0")){//根节点
+					resultData.add(item);
+				}else{
+					//先去result里寻找父节点
+					boolean isFound = this.traverseParentFromResult(item, resultData);
+					if(!isFound){
+						//去temp里寻找子节点或父节点
+						isFound = this.traverseParentOrChildFromTemp(item, tempData);	
+					}
+				}
+			}
+			
+			//第二次分类，把temp里的树归置到result里
+			for(int i = 0, count = tempData.size(); i < count; i++){
+				HashMap<String, Object> item = tempData.get(i);
+				boolean isFound = this.traverseParentFromResult(item, resultData);
+				if(!isFound){
+					resultData.add(item);
+					Log.d("Error:", "Node not belong to any tree!");
+				}
+			}
+			
+			return resultData;
+		}
+
+		private boolean traverseParentFromResult(HashMap<String, Object> c, List<HashMap<String, Object>> targetData)
+		{
+			String cPid = (String)c.get(parentIdKey);
+			for (int i = 0; i < targetData.size(); i++){
+				HashMap<String, Object> item = (HashMap<String, Object>) targetData.get(i);
+				String _id = (String)item.get(idKey);
+				List<HashMap<String, Object>> childrenData =  (List) item.get("children");
+				if(childrenData == null){
+					childrenData = new ArrayList<HashMap<String, Object>>();
+					item.put("children", childrenData);
+				}
+				if(_id.equals(cPid)){//找到了父节点，放进children里
+					childrenData.add(c);
+					return true;
+				}else{//继续遍历树找
+					if(childrenData != null && childrenData.size() != 0){
+						this.traverseParentFromResult(c, childrenData);
+					}
+				}
+			}
+			return false;
+		}
+		
+		private boolean traverseParentOrChildFromTemp(HashMap<String, Object> c, List<HashMap<String, Object>> targetData)
+		{
+			String cPid = (String)c.get(parentIdKey);
+			String cId = (String)c.get(idKey);
+			for (int i = 0; i < targetData.size(); i++){
+				HashMap<String, Object> item = (HashMap<String, Object>) targetData.get(i);
+				String _id = (String)item.get(idKey);
+				String _pid = (String)item.get(parentIdKey);
+				List<HashMap<String, Object>> childrenData = (List) item.get("children");
+				if(childrenData == null){
+					childrenData = new ArrayList<HashMap<String, Object>>();
+					item.put("children", childrenData);
+				}
+				if(_id.equals(cPid)){//找到了父节点，放进children里
+					childrenData.add(c);
+					return true;
+				}else if(_pid.equals(cId)){//找到子节点，替换子节点在temp的位置，并把子节点添加在自己的children里
+					List<HashMap<String, Object>> _childrenData = (List) c.get("children");
+					if(_childrenData == null){
+						_childrenData = new ArrayList<HashMap<String, Object>>();
+						c.put("children", _childrenData);
+					}
+					_childrenData.add(item);
+					tempData.add(c);
+					tempData.remove(item);
+					return true;
+				}else {//继续遍历树找
+					if(childrenData != null && childrenData.size() != 0){
+						this.traverseParentFromResult(c, childrenData);
+					}else{//没找到则放在tempData内
+						tempData.add(c);
+					}
+				}
+			}
+			return false;
+		}
+		
+	}
